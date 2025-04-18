@@ -1,0 +1,37 @@
+
+name: DeFi Auto‑Compound
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */4 * * *'
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - run: npm ci
+        working-directory: ./defi-auto-compounder
+
+      - name: Run harvest script
+        env:
+          RPC_URL: ${{ secrets.RPC_URL }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        run: node scripts/harvest.js
+        working-directory: ./defi-auto-compounder
+
+      - name: Notify Telegram
+        if: ${{ success() }}
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          curl -s -X POST https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage \
+            -d chat_id=$TELEGRAM_CHAT_ID \
+            -d text="💰 DeFi Auto‑Compound ran at $(date +'%H:%M on %Y-%m-%d'). Check logs: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions"
